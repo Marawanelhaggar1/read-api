@@ -1,42 +1,56 @@
-import fetch from "node-fetch";
+const getEgpCurrency = async () => {
+  let currency = await fetch(
+    "https://openexchangerates.org/api/latest.json?app_id=4fb54a06490f4d09a8bf0049e7b9d7eb"
+  );
+  currency = await currency.json();
+  return currency.rates.EGP;
+};
+const getData = async function () {
+  let egpCurrency = await getEgpCurrency();
+  try {
+    let data = await fetch("https://api.escuelajs.co/api/v1/products");
+    data = await data.json();
 
-const _fetch = (url) => fetch(url).then((res) => res.json());
+    let catId = [];
+    data.forEach((e) => {
+      catId.push(e.category.id);
+    });
 
-const groupWithCategory = (products) => {
-  const categorized = {};
+    let UniqueId = new Set(catId);
+    UniqueId = [...UniqueId];
 
-  products.forEach((element) => {
-    if (categorized[element.category.id]) {
-      categorized[element.category.id].products.push(element);
-    } else {
-      categorized[element.category.id] = {
+    let finallArray = [];
+    UniqueId.forEach(function (a, i) {
+      let categorize = {
         category: {
-          id: element.category.id,
-          name: element.category.name,
+          id: a,
         },
-        products: [element],
+        products: [],
       };
-    }
-  });
 
-  return Object.values(categorized);
+      data.forEach((el) => {
+        if (a === el.category.id) {
+          categorize.category.name = el.category.name;
+          let obj = {
+            id: el.id,
+            title: el.title,
+            price: el.price * egpCurrency + `$`,
+            description: el.description,
+            category: {
+              id: el.category.id,
+              name: el.category.name,
+              image: el.category.image,
+            },
+          };
+          categorize.products.push(obj);
+        }
+      });
+      finallArray.push(categorize);
+    });
+    console.log(finallArray);
+  } catch (error) {
+    console.log(error);
+  }
 };
 
-const transferCurrency = (products, rate) => {
-  return products.map((el) => ({ ...el, price: el.price * rate }));
-};
-
-const categorizeProducts = async () => {
-  const [products, egp] = await Promise.all([
-    _fetch("https://api.escuelajs.co/api/v1/products?offset=1&limit=10"),
-    _fetch("https://api.exchangerate.host/latest?base=USD").then(
-      (res) => res.rates["EGP"]
-    ),
-  ]);
-
-  const transformedPrices = transferCurrency(products, egp);
-  const categorizedProducts = groupWithCategory(transformedPrices);
-  console.log(JSON.stringify(categorizedProducts, null, 2));
-};
-
-categorizeProducts();
+getData();
